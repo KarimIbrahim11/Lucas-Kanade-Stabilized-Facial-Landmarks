@@ -25,7 +25,7 @@ if __name__ == '__main__':
     landmarks_predictor = dlib.shape_predictor("models/shape_predictor_68_face_landmarks.dat")
 
     # Initializing dummy arrays
-    points, pointsPrev, pointsDetectedCur, pointsDetectedPrev = [], [], [], []
+    points, prev_points, curr_detections, prev_detections = [], [], [], []
 
     # Old frame for tracking
     _, old_frame = stream.read()
@@ -55,22 +55,22 @@ if __name__ == '__main__':
                 newRect = dlib.rectangle(int(faces[i].left()), int(faces[i].top()), int(faces[i].right()),
                                          int(faces[i].bottom()))
                 if first_frame:
-                    [pointsPrev.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
-                    [pointsDetectedPrev.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
+                    [prev_points.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
+                    [prev_detections.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
                 else:
-                    pointsPrev = []
-                    pointsDetectedPrev = []
-                    pointsPrev = points
-                    pointsDetectedPrev = pointsDetectedCur
+                    prev_points = []
+                    prev_detections = []
+                    prev_points = points
+                    prev_detections = curr_detections
 
                 points = []
-                pointsDetectedCur = []
+                curr_detections = []
                 [points.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
-                [pointsDetectedCur.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
+                [curr_detections.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
 
                 # Convert to numpy float array
                 pointsArr = np.array(points, np.float32)
-                pointsPrevArr = np.array(pointsPrev, np.float32)
+                prev_pointsArr = np.array(prev_points, np.float32)
 
                 # If eye distance is not calculated before
                 if eyeDistanceNotCalculated:
@@ -89,12 +89,7 @@ if __name__ == '__main__':
                 lk_params = dict(winSize=(s, s), maxLevel=5,
                                  criteria=(cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03))
 
-                points = []
-                pointsDetectedCur = []
-                [points.append((p.x, p.y)) for p in landmarks_predictor(frame, newRect).parts()]
-                [pointsDetectedCur.append((p.x, p.y)) for p in landmarks_predictor(frame, newRect).parts()]
-
-                pointsArr, st, err = cv2.calcOpticalFlowPyrLK(old_gray, gray, pointsPrevArr, pointsArr, **lk_params)
+                pointsArr, st, err = cv2.calcOpticalFlowPyrLK(old_gray, gray, prev_pointsArr, pointsArr, **lk_params)
 
                 # Converting to float
                 pointsArrFloat = np.array(pointsArr, np.float32)
@@ -104,23 +99,23 @@ if __name__ == '__main__':
 
                 # landmarks final are an average of the detected and the current
                 for k in range(0, len(landmarks_predictor(gray, newRect).parts())):
-                    d = cv2.norm(np.array(pointsDetectedPrev[k]) - np.array(pointsDetectedCur[k]))
+                    d = cv2.norm(np.array(prev_detections[k]) - np.array(curr_detections[k]))
                     alpha = math.exp(-d * d / sigma)
-                    points[k] = (1 - alpha) * np.array(pointsDetectedCur[k]) + alpha * np.array(points[k])
+                    points[k] = (1 - alpha) * np.array(curr_detections[k]) + alpha * np.array(points[k])
 
                 # Showing stabilized in Green and destabilized in Red
                 if stable:
                     for p in points:
                         cv2.circle(frame, (int(p[0]), int(p[1])), dotRadius, (0, 255, 0), -1)
                 else:
-                    for p in pointsDetectedCur:
+                    for p in curr_detections:
                         cv2.circle(frame, (int(p[0]), int(p[1])), dotRadius, (0, 0, 255), -1)
 
                 # set as false first frame was set
                 first_frame = False
 
         # Show frame
-        cv2.imshow("Video Stream", cv2.flip(frame, 1))
+        cv2.imshow("Press [SPACE] for stabilized landmarks, [ESC] to exit", cv2.flip(frame, 1))
 
         # assign old variable to current for next frame
         old_frame = frame
