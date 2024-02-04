@@ -19,4 +19,8 @@ Press [SPACE] to shuffle between the stable and unstable stream, [ESC] to exit t
 
 > please note that this script is developed to work realtime using your desktop/laptop's camera.
 
+## Experimental Results before Averaging
+
+
+https://github.com/KarimIbrahim11/Lucas-Kanade-Stabilized-Facial-Landmarks/assets/47744559/acb6dc54-145b-4c49-b999-d673324ed878
 
