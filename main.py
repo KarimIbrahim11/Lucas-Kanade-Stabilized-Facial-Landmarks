@@ -49,7 +49,51 @@ if __name__ == '__main__':
         # face detecting
         faces = face_detector(gray)
         if not faces:
-            print("No faces found :( ")
+            print("No faces found :(")
+            if not first_frame:  # previous calculations
+                prev_points = points
+                prev_detections = curr_detections
+
+                # Convert to numpy float array
+                pointsArr = np.array(points, np.float32)
+                prev_pointsArr = np.array(prev_points, np.float32)
+
+                if eyeDistance > 100:
+                    dotRadius = 3
+                else:
+                    dotRadius = 2
+
+                sigma = eyeDistance * eyeDistance / 400
+                s = 2 * int(eyeDistance / 4) + 1
+
+                #  Set up optical flow params
+                lk_params = dict(winSize=(s, s), maxLevel=2,
+                                 criteria=(cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03))
+
+                pointsArr, st, err = cv2.calcOpticalFlowPyrLK(old_gray, gray, prev_pointsArr, None, **lk_params)
+
+                # Converting to float
+                pointsArrFloat = np.array(pointsArr, np.float32)
+
+                # Converting back to list
+                points = pointsArrFloat.tolist()
+                curr_detections = points
+
+                # Showing stabilized in Green and destabilized in Red
+                if stable:
+                    for p in points:
+                        cv2.circle(frame, (int(p[0]), int(p[1])), dotRadius, (0, 255, 0), -1)
+
+                old_frame = frame
+                old_gray = gray
+
+                # Wait for ESC key to quit and SPACE key to stabilize/destiabilze the video
+                key = cv2.waitKey(1) & 0xFF
+                if key == 32:
+                    stable = not stable
+                if key == 27:  # ESC
+                    stream.release()
+                    break
         else:
             for i in range(0, len(faces)):
                 newRect = dlib.rectangle(int(faces[i].left()), int(faces[i].top()), int(faces[i].right()),
@@ -58,8 +102,6 @@ if __name__ == '__main__':
                     [prev_points.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
                     [prev_detections.append((p.x, p.y)) for p in landmarks_predictor(gray, newRect).parts()]
                 else:
-                    prev_points = []
-                    prev_detections = []
                     prev_points = points
                     prev_detections = curr_detections
 
