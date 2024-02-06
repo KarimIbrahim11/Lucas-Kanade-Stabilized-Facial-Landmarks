@@ -2,6 +2,29 @@ import numpy as np
 import cv2
 import dlib
 import math
+from skimage import metrics
+
+
+def MSE(true, predicted):
+    summation = 0
+    n = len(true)
+    for i in range(0, n):
+        difference = true[i] - predicted[i]
+        squared_difference = difference ** 2
+        summation += squared_difference
+    return summation / n
+
+
+def SSIM_score(gray, current_points, predicted_points):
+    g_pred = gray.copy()
+    g_true = gray.copy()
+
+    for p in current_points:
+        cv2.circle(g_true, (int(p[0]), int(p[1])), 2, (255, 255, 255), -1)
+    for p in predicted_points:
+        cv2.circle(g_pred, (int(p[0]), int(p[1])), 2, (255, 255, 255), -1)
+
+    return metrics.structural_similarity(g_pred, g_true, full=True)
 
 
 def interEyeDistance(predict):
@@ -40,6 +63,10 @@ if __name__ == '__main__':
     # eye distance for calculation of window size of the LK algorithm
     eyeDistanceNotCalculated = True
     eyeDistance = 0
+
+    # SSIMs = 0
+    MSEs = [0, 0]
+    detection_counter = 0
 
     while True:
         # frame capturing
@@ -93,8 +120,13 @@ if __name__ == '__main__':
                     stable = not stable
                 if key == 27:  # ESC
                     stream.release()
+                    # SSIMs /= detection_counter
+                    # print("SSIM Score = ", round(SSIMs, 2))
+                    MSEs /= detection_counter
+                    print("MSE overall frames detected = ", MSEs)
                     break
         else:
+            detection_counter += 1
             for i in range(0, len(faces)):
                 newRect = dlib.rectangle(int(faces[i].left()), int(faces[i].top()), int(faces[i].right()),
                                          int(faces[i].bottom()))
@@ -139,11 +171,22 @@ if __name__ == '__main__':
                 # Converting back to list
                 points = pointsArrFloat.tolist()
 
+                summation = 0
                 # landmarks final are an average of the detected and the current
                 for k in range(0, len(landmarks_predictor(gray, newRect).parts())):
                     d = cv2.norm(np.array(prev_detections[k]) - np.array(curr_detections[k]))
                     alpha = math.exp(-d * d / sigma)
                     points[k] = (1 - alpha) * np.array(curr_detections[k]) + alpha * np.array(points[k])
+
+                    # for MSE calculation
+                    summation += ((curr_detections[k] - points[k]) ** 2)
+
+                # Calculate MSE of pixel shifts
+                MSEs += summation / len(points)
+                # MSEs += MSE(curr_detections, points)
+
+                # Calculate SSIM
+                # SSIMs += SSIM_score(gray, curr_detections, points)[0]
 
                 # Showing stabilized in Green and destabilized in Red
                 if stable:
@@ -169,4 +212,8 @@ if __name__ == '__main__':
             stable = not stable
         if key == 27:  # ESC
             stream.release()
+            # SSIMs /= detection_counter
+            # print("SSIM Score = ", round(SSIMs, 2))
+            MSEs /= detection_counter
+            print("MSE overall frames detected = ", MSEs)
             break
