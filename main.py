@@ -183,7 +183,7 @@ if __name__ == '__main__':
 
                 # Calculate MSE of pixel shifts
                 MSEs += summation / len(points)
-                # MSEs += MSE(curr_detections, points)
+                MSEs += MSE(curr_detections, points)
 
                 # Calculate SSIM
                 # SSIMs += SSIM_score(gray, curr_detections, points)[0]
